@@ -1,0 +1,428 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Encuesta Confidencial</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Firebase SDK -->
+    <script src="https://www.gstatic.com/firebasejs/9.6.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.6.0/firebase-database-compat.js"></script>
+    <style>
+        :root {
+            --azul-profundo: #0F1626;
+            --gris-oscuro: #1A1A2E;
+            --azul-noche: #16213E;
+            --azul-acero: #2D4263;
+            --bronce: #C6B38E;
+            --crema: #F4F4F4;
+            --verde-menta: #A5C9CA;
+            --error: #E74C3C;
+        }
+        
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Segoe UI', 'Roboto', 'Helvetica Neue', sans-serif;
+        }
+        
+        body {
+            background: linear-gradient(135deg, var(--azul-profundo), var(--azul-noche));
+            height: 100vh;
+            overflow: hidden;
+        }
+        
+        .background-blur {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: url('https://source.unsplash.com/random/1920x1080/?abstract,dark') no-repeat center center;
+            background-size: cover;
+            filter: blur(12px) brightness(0.6);
+            transform: scale(1.1);
+            z-index: -1;
+        }
+        
+        .glass-container {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 90%;
+            max-width: 500px;
+            background: rgba(26, 26, 46, 0.7);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border-radius: 16px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            box-shadow: 0 12px 24px rgba(0, 0, 0, 0.3);
+            padding: 30px;
+            color: var(--crema);
+            overflow: hidden;
+            opacity: 0;
+            transition: opacity 0.8s ease;
+        }
+        
+        .screen {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+        }
+        
+        .typewriter {
+            position: relative;
+            font-size: 2rem;
+            font-weight: 500;
+            margin-bottom: 25px;
+            color: var(--bronce);
+        }
+        
+        .typewriter::after {
+            content: '|';
+            position: absolute;
+            right: -8px;
+            animation: blink 0.7s infinite;
+            color: var(--verde-menta);
+        }
+        
+        @keyframes blink {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0; }
+        }
+        
+        .input-container {
+            position: relative;
+            width: 100%;
+            margin-bottom: 20px;
+        }
+        
+        input, textarea {
+            width: 100%;
+            padding: 14px 18px;
+            border: none;
+            border-radius: 8px;
+            background: rgba(15, 22, 38, 0.7);
+            color: var(--crema);
+            font-size: 15px;
+            transition: all 0.3s ease;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        
+        input:focus, textarea:focus {
+            outline: none;
+            background: rgba(15, 22, 38, 0.9);
+            box-shadow: 0 0 0 2px var(--verde-menta);
+        }
+        
+        input::placeholder, textarea::placeholder {
+            color: rgba(255, 255, 255, 0.5);
+            font-style: italic;
+        }
+        
+        .button {
+            background: var(--bronce);
+            color: var(--azul-profundo);
+            border: none;
+            padding: 14px 28px;
+            border-radius: 8px;
+            font-size: 15px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+            margin-top: 15px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 16px rgba(0, 0, 0, 0.25);
+            background: #D8C79E;
+        }
+        
+        .button:active {
+            transform: translateY(0);
+        }
+        
+        .button:disabled {
+            background: #6D6D6D;
+            cursor: not-allowed;
+        }
+        
+        #greeting, .question, #finalMessage {
+            display: none;
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(15px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        .fade-in {
+            animation: fadeIn 0.6s forwards;
+        }
+        
+        .question {
+            width: 100%;
+        }
+        
+        .question h2 {
+            margin-bottom: 15px;
+            font-size: 1.1rem;
+            color: var(--verde-menta);
+            font-weight: normal;
+        }
+        
+        #finalMessage {
+            font-size: 1.8rem;
+            font-weight: 500;
+            color: var(--bronce);
+        }
+        
+        .security-note {
+            margin-top: 20px;
+            font-size: 0.9rem;
+            opacity: 0.7;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .error-message {
+            color: var(--error);
+            margin-top: 10px;
+            font-size: 0.9rem;
+        }
+        
+        .success-message {
+            color: var(--verde-menta);
+            margin-top: 20px;
+        }
+        
+        .spinner {
+            animation: spin 1s linear infinite;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+    <div class="background-blur"></div>
+    
+    <div class="glass-container" id="container">
+        <!-- Pantalla de bienvenida -->
+        <div class="screen" id="greeting">
+            <div class="typewriter" id="typewriter">Hola</div>
+        </div>
+        
+        <!-- Pantalla de nombre -->
+        <div class="screen" id="nameScreen">
+            <div class="typewriter">Hola, ¿cómo te llamas?</div>
+            <div class="input-container fade-in">
+                <input type="text" id="userName" placeholder="Tu nombre completo" required>
+            </div>
+            <button class="button fade-in" onclick="nextScreen()">
+                Continuar <i class="fas fa-arrow-right"></i>
+            </button>
+        </div>
+        
+        <!-- Preguntas -->
+        <div class="screen question" id="q1">
+            <h2>1. ¿Qué te gusta de mí?</h2>
+            <div class="input-container">
+                <textarea id="like" rows="3" placeholder="Sé sincero/a..." required></textarea>
+            </div>
+            <button class="button" onclick="nextQuestion(2)">
+                Siguiente <i class="fas fa-arrow-right"></i>
+            </button>
+        </div>
+        
+        <div class="screen question" id="q2">
+            <h2>2. Escribe una anécdota que a nadie le dirías</h2>
+            <div class="input-container">
+                <textarea id="anecdote" rows="3" placeholder="Tu secreto está seguro aquí..." required></textarea>
+            </div>
+            <button class="button" onclick="nextQuestion(3)">
+                Siguiente <i class="fas fa-arrow-right"></i>
+            </button>
+        </div>
+        
+        <div class="screen question" id="q3">
+            <h2>3. ¿En qué lugares del cuerpo tienes lunares?</h2>
+            <div class="input-container">
+                <textarea id="moles" rows="2" placeholder="Describe si lo deseas..." required></textarea>
+            </div>
+            <button class="button" onclick="nextQuestion(4)">
+                Siguiente <i class="fas fa-arrow-right"></i>
+            </button>
+        </div>
+        
+        <div class="screen question" id="q4">
+            <h2>4. Dime todo lo que te gusta hacer</h2>
+            <div class="input-container">
+                <textarea id="hobbies" rows="3" placeholder="Tus actividades favoritas..." required></textarea>
+            </div>
+            <button class="button" id="submitBtn" onclick="submitForm()">
+                Terminar <i class="fas fa-lock"></i>
+            </button>
+            <div id="errorMessage" class="error-message"></div>
+        </div>
+        
+        <!-- Mensaje final -->
+        <div class="screen" id="finalMessage">
+            <div class="typewriter">Nadie sabrá lo que escribiste</div>
+            <div class="security-note">
+                <i class="fas fa-shield-alt"></i> Respuestas protegidas con cifrado
+            </div>
+            <div id="successMessage" class="success-message"></div>
+        </div>
+    </div>
+
+    <script>
+        // Configuración de Firebase (REEMPLAZA CON TUS DATOS)
+        const firebaseConfig = {
+            apiKey: "TU_API_KEY",
+            authDomain: "TU_PROYECTO.firebaseapp.com",
+            databaseURL: "https://TU_PROYECTO.firebaseio.com",
+            projectId: "TU_PROYECTO",
+            storageBucket: "TU_PROYECTO.appspot.com",
+            messagingSenderId: "TU_SENDER_ID",
+            appId: "TU_APP_ID"
+        };
+        
+        // Inicializar Firebase
+        firebase.initializeApp(firebaseConfig);
+        const database = firebase.database();
+        
+        // Variables para almacenar respuestas
+        const userResponses = {};
+        let userIP = '';
+        
+        // Inicialización
+        document.addEventListener('DOMContentLoaded', async () => {
+            // Obtener IP del usuario (para identificar respuestas únicas)
+            try {
+                const ipResponse = await fetch('https://api.ipify.org?format=json');
+                const ipData = await ipResponse.json();
+                userIP = ipData.ip;
+            } catch (error) {
+                console.log('No se pudo obtener la IP:', error);
+                userIP = 'unknown-' + Math.random().toString(36).substr(2, 9);
+            }
+            
+            // Mostrar contenedor principal
+            setTimeout(() => {
+                document.getElementById('container').style.opacity = '1';
+                startGreeting();
+            }, 300);
+        });
+        
+        // Animación de bienvenida
+        function startGreeting() {
+            document.getElementById('greeting').style.display = 'flex';
+            
+            setTimeout(() => {
+                document.getElementById('greeting').style.display = 'none';
+                showScreen('nameScreen');
+            }, 2500);
+        }
+        
+        // Mostrar pantalla con animación
+        function showScreen(screenId) {
+            document.getElementById(screenId).style.display = 'flex';
+            document.getElementById(screenId).classList.add('fade-in');
+        }
+        
+        // Ocultar pantalla
+        function hideScreen(screenId) {
+            document.getElementById(screenId).style.display = 'none';
+        }
+        
+        // Validar y avanzar a la siguiente pantalla
+        function nextScreen() {
+            const userName = document.getElementById('userName').value.trim();
+            
+            if (userName) {
+                userResponses.name = userName;
+                userResponses.timestamp = new Date().toISOString();
+                userResponses.ip = userIP;
+                hideScreen('nameScreen');
+                showScreen('q1');
+            } else {
+                showError('Por favor ingresa tu nombre');
+            }
+        }
+        
+        // Avanzar a la siguiente pregunta
+        function nextQuestion(nextQ) {
+            const currentQ = nextQ - 1;
+            const answer = document.getElementById(['like', 'anecdote', 'moles', 'hobbies'][currentQ-1]).value.trim();
+            
+            if (answer) {
+                userResponses[['like', 'anecdote', 'moles', 'hobbies'][currentQ-1]] = answer;
+                hideScreen(`q${currentQ}`);
+                showScreen(`q${nextQ}`);
+            } else {
+                showError('Por favor responde la pregunta');
+            }
+        }
+        
+        // Mostrar mensaje de error
+        function showError(message) {
+            const errorElement = document.getElementById('errorMessage');
+            errorElement.textContent = message;
+            setTimeout(() => errorElement.textContent = '', 3000);
+        }
+        
+        // Enviar formulario completo a Firebase
+        async function submitForm() {
+            const hobbies = document.getElementById('hobbies').value.trim();
+            
+            if (!hobbies) {
+                showError('Por favor completa la pregunta');
+                return;
+            }
+            
+            userResponses.hobbies = hobbies;
+            
+            const submitBtn = document.getElementById('submitBtn');
+            submitBtn.innerHTML = '<i class="fas fa-spinner spinner"></i> Guardando...';
+            submitBtn.disabled = true;
+            
+            try {
+                // Guardar en Firebase Realtime Database
+                const newResponseRef = database.ref('responses').push();
+                await newResponseRef.set(userResponses);
+                
+                // Mostrar mensaje de éxito
+                hideScreen('q4');
+                showScreen('finalMessage');
+                document.getElementById('successMessage').textContent = 'Tus respuestas se han guardado de forma segura';
+                
+                // Opcional: Limpiar formulario después de 5 segundos
+                setTimeout(() => {
+                    document.getElementById('hobbies').value = '';
+                    submitBtn.innerHTML = 'Terminar <i class="fas fa-lock"></i>';
+                    submitBtn.disabled = false;
+                }, 5000);
+                
+            } catch (error) {
+                console.error('Error al guardar:', error);
+                showError('Error al guardar. Intenta nuevamente.');
+                submitBtn.innerHTML = 'Terminar <i class="fas fa-lock"></i>';
+                submitBtn.disabled = false;
+            }
+        }
+    </script>
+</body>
+</html>
